@@ -1,0 +1,46 @@
+{
+  "builders": [
+    {
+      "ami_name": "{{ timestamp }}",
+      "instance_type": "{{ user `instance_type` }}",
+      "region": "{{ user `region` }}",
+      "source_ami_filter": {
+        "filters": {
+          "name": "ubuntu/images/*ubuntu-xenial-16.04-amd64-server-*",
+          "root-device-type": "ebs",
+          "virtualization-type": "hvm"
+        },
+        "most_recent": true,
+        "owners": [
+          "099720109477"
+        ]
+      },
+      "ssh_keypair_name": "{{ user `ssh_keypair_name` }}",
+      "ssh_private_key_file": "{{ user `ssh_private_key_file` }}",
+      "ssh_username": "ubuntu",
+      "tags": {
+        "id": "{{ user `id` }}"
+      },
+      "type": "amazon-ebs"
+    }
+  ],
+  "post-processors": [
+    {
+      "checksum_types": [
+        "sha512"
+      ],
+      "type": "checksum"
+    },
+    {
+      "strip_path": true,
+      "type": "manifest"
+    }
+  ],
+  "variables": {
+    "id": "{{ uuid }}",
+    "instance_type": "t2.small",
+    "region": "us-east-1",
+    "ssh_keypair_name": "",
+    "ssh_private_key_file": "{{ env `HOME` }}/.ssh/id_rsa"
+  }
+}
