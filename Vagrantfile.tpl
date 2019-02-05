@@ -9,7 +9,9 @@ Vagrant.configure("2") do |config|
   config.vm.provider "aws" do |aws, override|
     aws.access_key_id = ENV["AWS_ACCESS_KEY_ID"]
     aws.ami = "${aws_ami}"
+    aws.instance_type = "${instance_type}"
     aws.keypair_name = "${key_name}"
+    aws.region = ENV["AWS_DEFAULT_REGION"]
     aws.secret_access_key = ENV["AWS_SECRET_ACCESS_KEY"]
     aws.security_groups = [
       "${security_group_id}"

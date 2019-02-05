@@ -28,9 +28,10 @@ data "template_file" "vagrantfile" {
 
   vars {
     aws_ami           = "${data.aws_ami.ami.id}"
+    instance_type     = "${var.instance_type}"
     key_name          = "${aws_key_pair.key_pair.key_name}"
     private_key       = "${var.private_key}"
-    security_group_id = "${aws_security_group.security_group.id}"
+    security_group_id = "${aws_security_group.security_group.name}"
     ssh_username      = "${var.ssh_username}"
   }
 }
@@ -41,6 +42,10 @@ resource "aws_security_group" "security_group" {
     from_port   = 22
     protocol    = "TCP"
     to_port     = 22
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
@@ -53,6 +58,11 @@ resource "local_file" "options" {
   filename = "${path.module}/packer/variables.json"
 }
 
+resource "local_file" "vagrantfile" {
+  content  = "${data.template_file.vagrantfile.rendered}"
+  filename = "${path.module}/Vagrantfile"
+}
+
 resource "null_resource" "packer" {
   provisioner "local-exec" {
     command     = "packer build -var id=${self.id} -var-file variables.json ${var.template}"
@@ -60,4 +70,21 @@ resource "null_resource" "packer" {
   }
 
   depends_on = ["local_file.options"]
+}
+
+resource "null_resource" "vagrant" {
+  provisioner "local-exec" {
+    command = "vagrant plugin install vagrant-aws"
+  }
+
+  provisioner "local-exec" {
+    command = "vagrant up"
+  }
+
+  provisioner "local-exec" {
+    command = "vagrant destroy -f"
+    when    = "destroy"
+  }
+
+  depends_on = ["local_file.vagrantfile"]
 }

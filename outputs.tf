@@ -1,4 +1,5 @@
-output "vagrantfile" {
-  description = "The Vagrantfile template"
-  value       = "${data.template_file.vagrantfile.rendered}"
+output "vagrant" {
+  value = "vagrant ssh"
+
+  depends_on = ["null_resource.vagrant"]
 }
