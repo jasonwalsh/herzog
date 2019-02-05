@@ -1,6 +1,6 @@
 variable "options" {
   default     = {}
-  description = ""
+  description = "https://packer.io/docs/commands/build.html#options"
   type        = "map"
 }
 

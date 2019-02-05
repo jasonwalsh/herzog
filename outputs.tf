@@ -1,3 +1,4 @@
 output "vagrantfile" {
-  value = "${data.template_file.vagrantfile.rendered}"
+  description = "The Vagrantfile template"
+  value       = "${data.template_file.vagrantfile.rendered}"
 }
