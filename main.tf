@@ -5,9 +5,9 @@ terraform {
 locals {
   # Options passed to `packer build` (e.g., `packer build [options] TEMPLATE`)
   options = {
-    instance_type    = "${var.instance_type}"
-    region           = "${data.aws_region.current.name}"
-    ssh_keypair_name = "${aws_key_pair.key_pair.key_name}"
+    instance_type = "${var.instance_type}"
+    region        = "${data.aws_region.current.name}"
+    ssh_username  = "${var.ssh_username}"
   }
 }
 
@@ -23,31 +23,23 @@ data "aws_ami" "ami" {
 
 data "aws_region" "current" {}
 
-data "template_file" "vagrantfile" {
-  template = "${file("${path.module}/Vagrantfile.tpl")}"
-
-  vars {
-    aws_ami           = "${data.aws_ami.ami.id}"
-    instance_type     = "${var.instance_type}"
-    key_name          = "${aws_key_pair.key_pair.key_name}"
-    private_key       = "${var.private_key}"
-    security_group_id = "${aws_security_group.security_group.name}"
-    ssh_username      = "${var.ssh_username}"
-  }
+data "aws_subnet_ids" "subnet_ids" {
+  vpc_id = "${aws_default_vpc.default_vpc.id}"
 }
 
-resource "aws_security_group" "security_group" {
-  ingress {
-    cidr_blocks = ["0.0.0.0/0"]
-    from_port   = 22
-    protocol    = "TCP"
-    to_port     = 22
-  }
+module "allow_ssh" {
+  source  = "terraform-aws-modules/security-group/aws//modules/ssh"
+  version = "2.11.0"
 
-  lifecycle {
-    create_before_destroy = true
-  }
+  ingress_cidr_blocks = [
+    "0.0.0.0/0",
+  ]
+
+  name   = "allow_ssh"
+  vpc_id = "${aws_default_vpc.default_vpc.id}"
 }
+
+resource "aws_default_vpc" "default_vpc" {}
 
 resource "aws_key_pair" "key_pair" {
   public_key = "${file("${pathexpand(var.public_key)}")}"
@@ -56,11 +48,6 @@ resource "aws_key_pair" "key_pair" {
 resource "local_file" "options" {
   content  = "${jsonencode(merge(local.options, var.options))}"
   filename = "${path.module}/packer/variables.json"
-}
-
-resource "local_file" "vagrantfile" {
-  content  = "${data.template_file.vagrantfile.rendered}"
-  filename = "${path.module}/Vagrantfile"
 }
 
 resource "null_resource" "packer" {
@@ -72,19 +59,18 @@ resource "null_resource" "packer" {
   depends_on = ["local_file.options"]
 }
 
-resource "null_resource" "vagrant" {
-  provisioner "local-exec" {
-    command = "vagrant plugin install vagrant-aws"
-  }
+module "instance" {
+  source  = "terraform-aws-modules/ec2-instance/aws"
+  version = "1.14.0"
 
-  provisioner "local-exec" {
-    command = "vagrant up"
-  }
+  ami                         = "${data.aws_ami.ami.id}"
+  associate_public_ip_address = true
+  instance_type               = "${var.instance_type}"
+  key_name                    = "${aws_key_pair.key_pair.key_name}"
+  name                        = "${null_resource.packer.id}"
+  subnet_id                   = "${element(data.aws_subnet_ids.subnet_ids.ids, 0)}"
 
-  provisioner "local-exec" {
-    command = "vagrant destroy -f"
-    when    = "destroy"
-  }
-
-  depends_on = ["local_file.vagrantfile"]
+  vpc_security_group_ids = [
+    "${module.allow_ssh.this_security_group_id}",
+  ]
 }
